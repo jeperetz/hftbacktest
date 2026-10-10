@@ -1,0 +1,16 @@
+Same-half-hour momentum: AMZN vs META, enter 09:30 ET, exit 30 min later
+Data: 30m bars, 2026-08-11 .. 2026-10-09 (43 sessions)
+Sizing ~$10,000 per leg; half-spread $0.0050/share; fee 0.00 bp
+direction: +1 = long AMZN / short META
+
+                                                         days  net_pnl avg_day ci95_lo ci95_hi win_rate std_day     max_dd sharpe t_stat
+strategy                                                                                                                                
+momentum, 1-day lookback                                   42   782.05   18.62  -30.15   67.39      50%  161.27    -589.96   1.83   0.75
+  baseline (1-day days): always long AMZN / short META     42  -595.49  -14.18  -63.13   34.77      45%  161.85  -1,634.92  -1.39  -0.57
+  baseline (1-day days): always long META / short AMZN     42   550.43   13.11  -35.84   62.05      55%  161.84    -954.21   1.29   0.52
+momentum, 5-day lookback                                   38  -295.28   -7.77  -61.74   46.20      50%  169.74    -998.91  -0.73  -0.28
+  baseline (5-day days): always long AMZN / short META     38  -624.87  -16.44  -70.22   37.33      45%  169.13  -1,632.19  -1.54  -0.60
+  baseline (5-day days): always long META / short AMZN     38   584.05   15.37  -38.41   69.15      55%  169.13    -954.21   1.44   0.56
+momentum, 10-day lookback                                  33   -69.12   -2.09  -63.54   59.35      58%  180.08    -829.76  -0.18  -0.07
+  baseline (10-day days): always long AMZN / short META    33  -448.12  -13.58  -74.86   47.70      45%  179.60  -1,632.19  -1.20  -0.43
+  baseline (10-day days): always long META / short AMZN    33   412.88   12.51  -48.77   73.79      55%  179.60    -954.21   1.11   0.40
