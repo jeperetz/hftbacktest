@@ -25,29 +25,26 @@ sys.path.insert(0, str(HERE.parent))
 
 from lib.bar_events import to_ns  # noqa: E402
 from lib.basket import run_basket  # noqa: E402
-from lib.market_data import NY, REGULAR_OPEN, load_csv  # noqa: E402
+from lib.market_data import REGULAR_OPEN, interval_to_timedelta, load_csv  # noqa: E402
 
-SLOT = pd.Timedelta(minutes=30)
-
-
-def load_universe(data_dir):
+def load_universe(data_dir, interval):
     bars = {}
     for f in sorted(Path(data_dir).glob('*.csv')):
-        bars[f.stem] = load_csv(f, '30m')
+        bars[f.stem] = load_csv(f, interval)
     return bars
 
 
-def slot_table(bars):
+def slot_table(bars, slot):
     """Per-day opening-slot return (signal) plus the entry/exit reference prices the backtest trades at."""
     ret, px_in, px_out = {}, {}, {}
     for s, b in bars.items():
         tod = b.index - b.index.normalize()
         first = b[tod == REGULAR_OPEN]
-        nxt = b[tod == REGULAR_OPEN + SLOT]
+        nxt = b[tod == REGULAR_OPEN + slot]
         ret[s] = first['close'] / first['open'] - 1
         px_in[s] = first['open']
-        # At 10:00 the synthetic book shows the 10:00 bar's open.
-        px_out[s] = pd.Series(nxt['open'].to_numpy(), index=nxt.index - SLOT)
+        # At the slot end the synthetic book shows the next bar's open.
+        px_out[s] = pd.Series(nxt['open'].to_numpy(), index=nxt.index - slot)
     ret, px_in, px_out = pd.DataFrame(ret), pd.DataFrame(px_in), pd.DataFrame(px_out)
     days = ret.dropna().index.intersection(px_out.dropna().index)
     return ret.loc[days], px_in.loc[days], px_out.loc[days]
@@ -109,25 +106,29 @@ def pair_pnl(ret, px_in, px_out, a, b, lookback, notional, half_spread):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--data-dir', default=str(HERE / 'data' / 'universe'), help='one 30m-bar <SYMBOL>.csv per stock')
+    p.add_argument('--data-dir', default=str(HERE / 'data' / 'universe'), help='one <SYMBOL>.csv of bars per stock')
+    p.add_argument('--interval', default='30m', help='bar size; the traded slot is the first bar of the day')
+    p.add_argument('--max-lag', type=int, default=10, help='lags for the cross-sectional regressions')
     p.add_argument('--lookback', type=int, nargs='+', default=[1, 5, 10])
     p.add_argument('--notional', type=float, default=10_000.0, help='dollars per position')
     p.add_argument('--half-spread', type=float, default=0.005)
     p.add_argument('--out-dir', default=str(HERE / 'results'))
     args = p.parse_args()
 
-    bars = load_universe(args.data_dir)
-    ret, px_in, px_out = slot_table(bars)
+    slot = interval_to_timedelta(args.interval)
+    slot_end = (pd.Timestamp('2000-01-01') + REGULAR_OPEN + slot).strftime('%H:%M')
+    bars = load_universe(args.data_dir, args.interval)
+    ret, px_in, px_out = slot_table(bars, slot)
     syms = list(ret.columns)
     bars_list = [bars[s] for s in syms]
     entry_ts = to_ns(ret.index)
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    tag = f'universe{len(syms)}_{ret.index[0].date()}_{ret.index[-1].date()}'
+    tag = f'universe{len(syms)}_{ret.index[0].date()}_{ret.index[-1].date()}_{args.interval}'
     lines = [
-        f'Same-half-hour momentum, {len(syms)} large US stocks, {ret.index[0].date()} .. {ret.index[-1].date()} '
+        f'Same-slot momentum, {len(syms)} large US stocks, {ret.index[0].date()} .. {ret.index[-1].date()} '
         f'({len(ret)} sessions)',
-        f'Trade 09:30 -> 10:00 ET, ~${args.notional:,.0f} per position, half-spread ${args.half_spread}/share',
+        f'Trade 09:30 -> {slot_end} ET ({args.interval} bars), ~${args.notional:,.0f} per position, half-spread ${args.half_spread}/share',
         '',
     ]
 
@@ -136,7 +137,7 @@ def main():
     for lb in args.lookback:
         w = quintile_weights(lagged_signal(ret, lb))
         for name, sign in [('momentum (long past winners)', 1), ('reversal (long past losers)', -1)]:
-            qty, ein, eout, eq = run_basket(bars_list, entry_ts, sign * w, SLOT.value, args.notional,
+            qty, ein, eout, eq = run_basket(bars_list, entry_ts, sign * w, slot.value, args.notional,
                                             args.half_spread)
             pnl = np.nansum(qty * (eout - ein), axis=1)
             traded = np.abs(w).sum(axis=1) > 0
@@ -153,8 +154,8 @@ def main():
     pd.DataFrame(daily).round(2).to_csv(out / f'portfolio_daily_{tag}.csv')
 
     # ---- 2. Cross-sectional regressions ----
-    fm = fama_macbeth(ret, 10)
-    lines += ['2) Avg cross-sectional slope of today\'s 09:30-10:00 return on the same slot k days ago',
+    fm = fama_macbeth(ret, args.max_lag)
+    lines += [f'2) Avg cross-sectional slope of today\'s 09:30-{slot_end} return on the same slot k days ago',
               '   (positive = same-slot momentum, as in the paper)',
               fm.round(4).to_string(), '']
 
@@ -205,7 +206,7 @@ def main():
     sig = np.sign((ret[a] - ret[b]).shift(1)).fillna(0).to_numpy()
     w = np.zeros((n, 2))
     w[:, 0], w[:, 1] = sig, -sig
-    qty, ein, eout, _ = run_basket([bars[a], bars[b]], entry_ts, w, SLOT.value, args.notional, args.half_spread)
+    qty, ein, eout, _ = run_basket([bars[a], bars[b]], entry_ts, w, slot.value, args.notional, args.half_spread)
     engine_pair = np.nansum(qty * (eout - ein))
     vec_pair = pair_pnl(ret, px_in, px_out, a, b, 1, args.notional, args.half_spread).sum()
     lines.append(f'Check: {a}/{b} pair P&L engine ${engine_pair:,.2f} vs vectorized ${vec_pair:,.2f}')

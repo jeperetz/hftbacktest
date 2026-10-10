@@ -98,9 +98,12 @@ def load_csv(path: str | Path, interval: str) -> pd.DataFrame:
     df = pd.read_csv(path)
     df.columns = [c.strip().lower() for c in df.columns]
     ts_col = next((c for c in ('start', 'timestamp', 'datetime', 'date', 'time') if c in df.columns), df.columns[0])
-    idx = pd.to_datetime(df[ts_col], utc=False)
-    if getattr(idx.dt, 'tz', None) is None:
-        idx = idx.dt.tz_localize(NY)
+    raw = df[ts_col].astype(str)
+    if raw.str.contains(r'(?:[+-]\d{2}:?\d{2}|Z)$').any():
+        # Explicit offsets (which differ across DST changes): parse via UTC.
+        idx = pd.to_datetime(raw, utc=True)
+    else:
+        idx = pd.to_datetime(raw).dt.tz_localize(NY)
     df.index = pd.DatetimeIndex(idx).tz_convert(NY)
     if 'volume' not in df.columns:
         df['volume'] = 0.0
