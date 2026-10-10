@@ -28,7 +28,7 @@ If running in a sandbox, the network must allow `query1.finance.yahoo.com`,
 | Directory | Idea |
 |---|---|
 | [`amzn_meta_open_hour`](amzn_meta_open_hour) | Long AMZN / short META at the 09:30 ET open, close both 1 hour later, every trading day |
-| [`same_slot_momentum`](same_slot_momentum) | Each day at 09:30, long whichever of two stocks did better in the 09:30-10:00 slot on prior days, short the other, close at 10:00 (Heston, Korajczyk & Sadka 2010) |
+| [`same_slot_momentum`](same_slot_momentum) | Each day at 09:30, long whichever of two stocks did better in the 09:30-10:00 slot on prior days, short the other, close at 10:00 (Heston, Korajczyk & Sadka 2010). `universe.py` runs the paper's version on 40 large stocks (long top / short bottom quintile) and screens stocks and pairs with an out-of-sample split |
 
 ```sh
 python strategies/amzn_meta_open_hour/backtest.py --help
