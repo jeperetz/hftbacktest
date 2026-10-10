@@ -1,0 +1,19 @@
+Strategy: long AMZN / short META at 09:30 ET open, close after 60 min
+Period: 2024-10-14 .. 2026-10-09 (498 trading days), data: 1h bars from Yahoo Finance
+Sizing: ~$10,000 per leg (whole shares); half-spread $0.0050/share; fee 0.00 bp; latency 1.0 ms
+
+Net P&L:                 $1,747.31
+  AMZN leg:               $-1,331.41
+  META leg:               $3,078.72
+  fees:                  $0.00
+Frictionless gross P&L:  $2,042.71  (no spread, no fees)
+Return on per-leg capital: 17.47%   (on gross exposure: 8.74%)
+
+Winning days:            260 / 498 (52.2%)
+Avg / median day:        $3.51 / $3.20
+Std of daily P&L:        $109.71
+Best day:                $431.07 (2026-09-28)
+Worst day:               $-474.01 (2026-09-21)
+Max drawdown:            $-2,108.89
+Annualized Sharpe:       0.51   (t-stat of mean daily P&L: 0.71)
+Avg 1st-hour return:     AMZN -0.023%, META -0.066%, spread +0.044%
